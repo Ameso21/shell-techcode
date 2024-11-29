@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shell-Tech Control Panel</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Bank+Gothic&family=VT323&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script defer src="js/main.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+</head>
+<body>
+    <header>
+        <img src="imagenes/logoimagen.jpg" width="800" height="800" alt="Logo Shell-Tech">
+        </div>
+        <h1>Shell-Tech</h1>
+    </header>
+    <main>
+        <section id="environmental-monitoring">
+            <h2>Monitoreo Ambiental</h2>
+            <div id="sensor-data">
+                <h3>Datos del Agua</h3>
+                <ul>
+                    <li>Nitratos: <span id="nitrates">0</span> ppm</li>
+                    <li>Sulfatos: <span id="sulfates">0</span> ppm</li>
+                    <li>pH: <span id="ph">0</span></li>
+                    <li>Metales Pesados: <span id="metals">0</span> ppb</li>
+                </ul>
+            </div>
+            <div id="map-container">
+                <div id="map" style="height: 400px;"></div>
+            </div>
+            <div id="camera-feed">
+                <h3>Cámara IA</h3>
+                <img id="camera-image" src="imagenes/imagen objetos.jpg" alt="Feed de Cámara">
+
+                <div>Teachable Machine Image Model</div>
+                <button type="button" onclick="init()">Start</button>
+                <div id="webcam-container"></div>
+                <div id="label-container"></div>
+            </div>
+        </section>
+
+        <section id="fortress-control">
+            <h2>Control de Fortaleza</h2>
+            <div id="lights-control">
+                <h3>Iluminación</h3>
+                <button id="lights-on">Encender Luces</button>
+                <button id="lights-off">Apagar Luces</button>
+                <input type="range" id="brightness" min="0" max="100">
+            </div>
+            <div id="fan-control">
+                <h3>Climatización</h3>
+                <button id="fan-on">Encender Ventilador</button>
+                <button id="fan-off">Apagar Ventilador</button>
+            </div>
+        </section>
+
+        <section class="data-section">
+            <article class="graph-section">
+                <h2>Niveles de Contaminantes</h2>
+                <canvas id="contaminantGraph"></canvas>
+            </article>
+            <article class="stats-section">
+                <h2>Objetos en el Río</h2>
+                <p>Objetos detectados: <span id="object-counter">0</span></p>
+            </article>
+            <article id="security">
+                <h2>Seguridad</h2>
+                <div id="enemy-count">
+                    <h3>Enemigos Detectados</h3>
+                    <span id="enemy-number">0</span>
+                </div>
+                <button id="alert-toggle">Prueba de Bocina</button>
+            </article>
+        </section>
+    </main>
+
+    <script>
+        // Mapa de Quito con Leaflet
+        var map = L.map('map').setView([-0.22985, -78.52495], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        var marker = L.marker([-0.22985, -78.52495]).addTo(map)
+            .bindPopup("Sensor de Contaminación")
+            .openPopup();
+
+        // Función para generar datos aleatorios de contaminantes
+        function generarDatosAleatorios() {
+            return {
+                pH: (Math.random() * 14).toFixed(2),
+                Nitratos: (Math.random() * 100).toFixed(2),
+                Fosfatos: (Math.random() * 100).toFixed(2),
+                "Metales Pesados": (Math.random() * 100).toFixed(2),
+                "Otras Sustancias": (Math.random() * 100).toFixed(2)
+            };
+        }
+
+        // Actualizar el diagrama de barras con datos aleatorios
+        function actualizarGrafico() {
+            const ctx = document.getElementById('contaminantGraph').getContext('2d');
+            const datos = generarDatosAleatorios();
+
+            const chartData = {
+                labels: Object.keys(datos),
+                datasets: [{
+                    label: 'Niveles de Contaminantes',
+                    data: Object.values(datos),
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.2)',
+                        'rgba(54, 162, 235, 0.2)',
+                        'rgba(255, 206, 86, 0.2)',
+                        'rgba(75, 192, 192, 0.2)',
+                        'rgba(153, 102, 255, 0.2)',
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(153, 102, 255, 1)',
+                    ],
+                    borderWidth: 1
+                }]
+            };
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: chartData,
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Actualizar el gráfico cada 45 segundos
+        setInterval(actualizarGrafico, 45000);
+
+        // Simulación de objetos detectados en el río (reemplazar con IA real)
+        let objectCount = 0;
+        setInterval(() => {
+            objectCount = Math.floor(Math.random() * 10);
+            document.getElementById('object-counter').innerText = objectCount;
+        }, 5000);
+
+
+        // Teachable Machine Model Script
+        // the link to your model provided by Teachable Machine export panel
+        const URL = "https://teachablemachine.withgoogle.com/models/NswrMHy-q/";
+
+        let model, webcam, labelContainer, maxPredictions;
+
+        // Load the image model and setup the webcam
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            // load the model and metadata
+            // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
+            // or files from your local hard drive
+            // Note: the pose library adds "tmImage" object to your window (window.tmImage)
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            // Convenience function to setup a webcam
+            const flip = true; // whether to flip the webcam
+            webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
+            await webcam.setup(); // request access to the webcam
+            await webcam.play();
+            window.requestAnimationFrame(loop);
+
+            // append elements to the DOM
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            labelContainer = document.getElementById("label-container");
+            for (let i = 0; i < maxPredictions; i++) { // and class labels
+                labelContainer.appendChild(document.createElement("div"));
+            }
+        }
+
+        async function loop() {
+            webcam.update(); // update the webcam frame
+            await predict();
+            window.requestAnimationFrame(loop);
+        }
+
+        // run the webcam image through the image model
+        async function predict() {
+            // predict can take in an image, video or canvas html element
+            const prediction = await model.predict(webcam.canvas);
+            for (let i = 0; i < maxPredictions; i++) {
+                const classPrediction =
+                    prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+                labelContainer.childNodes[i].innerHTML = classPrediction;
+            }
+        }
+    </script>
+</body>
+</html></html>
